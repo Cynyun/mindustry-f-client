@@ -53,8 +53,16 @@ public class JoinDialog extends BaseDialog{
     String lastIp;
     @Nullable public Host lastHost;
     int lastPort, lastColumns = -1;
-    Task ping;
+    Task ping, resizeTask;
+    int reconnectTries, reconnectGeneration;
+    boolean reconnecting;
+    /** how many pings a reconnect attempt makes before it gives up */
+    public static final int reconnectMaxTries = 10;
     private static boolean beList = Version.type.equals("bleeding-edge") || Vars.forceBeServers, fetchingCommunityServersErrored;
+    /** whether a community server list fetch is currently running, so that requests don't stack up */
+    private static boolean fetchingServers;
+    /** incremented for every new fetch; responses belonging to an older fetch are ignored */
+    private static int fetchGeneration;
     public static Runnable onCommunityFetch; // This is jank, I know.
 
     String serverSearch = "";
@@ -83,8 +91,12 @@ public class JoinDialog extends BaseDialog{
         buttons.add().growX().width(-1);
         buttons.button("", () -> {
             beList ^= true;
+            //switching the list always forces a new fetch, and clears any failure state left by the previous one
             defaultServers.clear();
-            fetchServers(beList ? serverJsonBeURLs : serverJsonURLs, 0, true);
+            fetchedServers = false;
+            fetchingCommunityServersErrored = false;
+            startFetch(beList ? serverJsonBeURLs : serverJsonURLs, true);
+            refreshCommunity();
         }).update(b -> b.setText("Use " + (beList ? "v8" : "BE") + " server list")).wrapLabel(false).height(64);
 
         addCloseButton(mobile ? 190f : 210f);
@@ -144,12 +156,42 @@ public class JoinDialog extends BaseDialog{
             //this means that refreshes on resize will only happen for small phones that need the list to fit in portrait mode
             //also resize if number of cols changes
             if(Math.min(Core.graphics.getWidth(), Core.graphics.getHeight()) / Scl.scl() * 0.9f < 500f || lastColumns != columns()){
-                setup();
-                refreshAll();
+                //debounce: dragging the window edge fires a resize event every frame, but the list must only be rebuilt once
+                cancelDelayedRefresh();
+                //timer tasks run on the timer thread, so the rebuild itself has to be posted to the main thread
+                resizeTask = Time.runTask(20f, () -> Core.app.post(this::refreshAfterResize));
             }
-
-            lastColumns = columns();
         });
+    }
+
+    @Override
+    public void hide(){
+        cancelDelayedRefresh();
+        super.hide();
+    }
+
+    @Override
+    public void hide(Action action){
+        cancelDelayedRefresh();
+        super.hide(action);
+    }
+
+    /** Rebuilds the list once dragging the window edge has settled. */
+    private void refreshAfterResize(){
+        resizeTask = null;
+        if(!isShown()) return;
+
+        lastColumns = columns();
+        setup();
+        refreshAll();
+    }
+
+    /** Cancels the refresh that is waiting for a resize to settle. */
+    private void cancelDelayedRefresh(){
+        if(resizeTask != null){
+            resizeTask.cancel();
+            resizeTask = null;
+        }
     }
 
     void refreshAll(){
@@ -426,17 +468,23 @@ public class JoinDialog extends BaseDialog{
 
     public void refreshCommunity(){
         communityHosts.clear();
-        int cur = refreshes;
+        //every rebuild is a new generation, so results of any ping that was started earlier are discarded
+        int cur = ++refreshes;
 
         global.clear();
         global.background(null);
 
-        if(!fetchedServers){
+        //only start a fetch when none is running and the last one did not fail -
+        //otherwise a failed fetch triggers a refresh, which triggers another fetch, forever
+        if(!fetchedServers && !fetchingServers && !fetchingCommunityServersErrored){
             fetchServers();
         }
 
         if(fetchingCommunityServersErrored){ // FINISHME: Bundle
-            global.add("Error: Unable to fetch community servers list.").color(Color.red).center();
+            global.table(t -> {
+                t.add("Error: Unable to fetch community servers list.").color(Color.red).padRight(10f);
+                t.button("@hosts.refresh", Icon.refresh, this::refetchCommunityServers).size(180f, 55f).pad(4f);
+            }).center();
             global.row();
         }
 
@@ -519,9 +567,21 @@ public class JoinDialog extends BaseDialog{
 
                     groupTable[0].margin(5f);
                     groupTable[0].pack();
-                }, e -> {});
+                }, e -> {
+                    //failed ping: there is nothing to show for this address, and a stale refresh must not be touched
+                    if(refreshes != cur) return;
+                });
             }
         }
+    }
+
+    /** Manually retries fetching the community server list after a failure. */
+    void refetchCommunityServers(){
+        if(fetchedServers) return;
+
+        fetchingCommunityServersErrored = false;
+        startFetch(beList ? serverJsonBeURLs : serverJsonURLs, true);
+        refreshCommunity();
     }
 
     void addHeader(Table[] groupTable, ServerGroup group, boolean hidden, boolean favorite, boolean doInit){ // outlined separately
@@ -705,23 +765,58 @@ public class JoinDialog extends BaseDialog{
 
     public void reconnect(){
         if(lastIp == null || lastIp.isEmpty()) return;
+
+        //drop any previous attempt, so that two reconnect loops can never run at the same time
+        cancelReconnect();
+        reconnecting = true;
+        reconnectTries = 0;
+        int generation = ++reconnectGeneration;
+
         ui.loadfrag.show("@reconnecting");
+        ui.loadfrag.setButton(this::cancelReconnect);
+        scheduleReconnectPing(generation);
+    }
 
-        ping = Timer.schedule(() -> {
-            net.pingHost(lastIp, lastPort, host -> {
-                if(ping == null) return;
-                ping.cancel();
-                ping = null;
+    private void scheduleReconnectPing(int generation){
+        if(!reconnecting || generation != reconnectGeneration) return;
+
+        if(reconnectTries >= reconnectMaxTries){
+            failReconnect();
+            return;
+        }
+
+        //only one ping may be in flight at a time, so a hanging ping can no longer pile up more pings
+        ping = Timer.schedule(() -> Core.app.post(() -> reconnectPing(generation)), 1f);
+    }
+
+    private void reconnectPing(int generation){
+        if(generation != reconnectGeneration) return; //a newer attempt has taken over
+        ping = null;
+        if(!reconnecting) return;
+
+        reconnectTries ++;
+        net.pingHost(lastIp, lastPort,
+            host -> Core.app.post(() -> {
+                if(!reconnecting || generation != reconnectGeneration) return;
+                reconnecting = false;
                 connect(lastIp, lastPort);
-            }, exception -> {});
-        }, 1, 1);
+            }),
+            e -> Core.app.post(() -> scheduleReconnectPing(generation)));
+    }
 
-        ui.loadfrag.setButton(() -> {
-            ui.loadfrag.hide();
-            if(ping == null) return;
+    private void failReconnect(){
+        cancelReconnect();
+        ui.showInfo(Core.bundle.format("reconnect.failed", reconnectMaxTries));
+    }
+
+    /** Cancels the current reconnect attempt, if any, and hides the loading fragment. */
+    public void cancelReconnect(){
+        reconnecting = false;
+        if(ping != null){
             ping.cancel();
             ping = null;
-        });
+        }
+        ui.loadfrag.hide();
     }
 
     void safeConnect(String ip, int port, int version){
@@ -752,6 +847,8 @@ public class JoinDialog extends BaseDialog{
     }
 
     public static void fetchServers(){
+        if(fetchedServers || fetchingServers) return;
+
         var urls = beList ? serverJsonBeURLs : serverJsonURLs;
 
         if(Core.settings.getBool("communityservers", true)){
@@ -764,36 +861,63 @@ public class JoinDialog extends BaseDialog{
                 Log.err("Failed to load cached server file", e);
             }
 
-            fetchServers(urls, 0, false);
+            //refresh the dialog once the request finishes, otherwise a list that arrives while the dialog
+            //is already open would never be displayed
+            startFetch(urls, true);
         }
     }
 
-    private static void fetchServers(String[] urls, int index, boolean refreshCommunity){
-        if(index >= urls.length) return;
+    /** Starts fetching the community server list, superseding any fetch that may still be running. */
+    private static void startFetch(String[] urls, boolean refreshCommunity){
+        fetchServers(urls, 0, refreshCommunity, ++fetchGeneration);
+    }
+
+    /** Forgets everything known about the community server list, so that it can be fetched again. */
+    public static void resetServerFetch(){
+        fetchedServers = false;
+        fetchingServers = false;
+        fetchingCommunityServersErrored = false;
+        fetchGeneration ++; //any request that is still running is now stale
+    }
+
+    private static void fetchServers(String[] urls, int index, boolean refreshCommunity, int generation){
+        if(index >= urls.length || generation != fetchGeneration) return;
+
+        if(index == 0){
+            fetchingServers = true;
+        }
+
         Log.debug("Fetching community servers at @", urls[index]);
 
         Http.get(urls[index])
+        .timeout(5000) //without a timeout the connection can hang for minutes and stall the whole retry chain
         .error(t -> {
-            if(fetchedServers) return;
+            //ignore responses of a superseded fetch, or of a list that has already been fetched
+            if(generation != fetchGeneration || fetchedServers) return;
 
             if(index < urls.length - 1){
                 Log.debug("Failed to fetch community servers from @, trying next url.", urls[index]);
                 //attempt fetching from the next URL upon failure
-                Timer.schedule(() -> fetchServers(urls, index + 1, refreshCommunity), 0.5f);
+                Timer.schedule(() -> fetchServers(urls, index + 1, refreshCommunity, generation), 0.5f);
             }else{
                 Log.err("Failed to fetch community servers", t);
+                fetchingServers = false;
                 fetchingCommunityServersErrored = true;
-                Core.app.post(ui.join::refreshCommunity); // Refresh community list to show error (terrible)
+                Core.app.post(() -> {
+                    //only redraw the list if the dialog is open; otherwise it is rebuilt on the next open anyway
+                    if(ui.join != null && ui.join.isShown()) ui.join.refreshCommunity();
+                }); // Refresh community list to show error (terrible)
             }
         })
         .submit(result -> {
-            if(fetchedServers) return;
+            if(generation != fetchGeneration || fetchedServers) return;
 
             String text = result.getResultAsString();
             Seq<ServerGroup> servers = parseServerString(text);
             //modify default servers on main thread
             Core.app.post(() -> {
-                if(fetchedServers) return;
+                if(generation != fetchGeneration || fetchedServers) return;
+                fetchingServers = false;
                 fetchingCommunityServersErrored = false;
                 //cache the server list to a file, so it can be loaded in case of an outage later
                 try{
@@ -803,7 +927,8 @@ public class JoinDialog extends BaseDialog{
                 }
                 defaultServers.addAll(servers);
                 fetchedServers = true;
-                if(refreshCommunity) ui.join.refreshCommunity(); // terrible.
+                //only redraw the list if the dialog is open, otherwise it is rebuilt on the next open anyway
+                if(refreshCommunity && ui.join != null && ui.join.isShown()) ui.join.refreshCommunity(); // terrible.
                 Log.info("Fetched @ community servers.", defaultServers.sum(s -> s.addresses.length));
                 if(onCommunityFetch != null){
                     onCommunityFetch.run();

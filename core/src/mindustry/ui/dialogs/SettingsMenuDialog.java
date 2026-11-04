@@ -587,10 +587,11 @@ public class SettingsMenuDialog extends BaseDialog{
 
         game.checkPref("communityservers", true, val -> {
             defaultServers.clear();
+            //the fetch state has to be reset as well, otherwise re-enabling the setting would keep a list
+            //that is marked as fetched but is empty, and no new fetch would ever be started
+            JoinDialog.resetServerFetch();
             if(val){
-                // FINISHME: JoinDialog methods are not static in foos client because of extra error handling flags
-                // -BalaM314, merging v8, Apr 13 2025
-                // JoinDialog.fetchServers();
+                JoinDialog.fetchServers();
             }
         });
 

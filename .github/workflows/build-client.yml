@@ -1,0 +1,73 @@
+name: Build Client
+
+# 构建 Foo's Client：desktop:dist 之后把 core/assets 里的 sounds/ 和 music/ 打进 jar，
+# 产物固定命名为 mindustry-f-client.jar（Release 里可直接下载 .jar，不用解压 artifact 的 zip）。
+on:
+  push:
+    branches: [ v8, my-v8, master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write # 上传 Release 资产需要
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  JAR_NAME: mindustry-f-client.jar
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: 17
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Make gradlew executable
+        run: chmod +x gradlew
+
+      - name: Build desktop jar
+        run: ./gradlew desktop:dist --parallel --stacktrace
+
+      - name: Add audio to jar
+        run: |
+          jar uf desktop/build/libs/Mindustry.jar -C core/assets sounds -C core/assets music
+
+      - name: Rename and verify jar
+        run: |
+          mkdir -p dist
+          cp desktop/build/libs/Mindustry.jar "dist/$JAR_NAME"
+          audio_entries=$(jar tf "dist/$JAR_NAME" | grep -cE '^(sounds|music)/' || true)
+          echo "audio entries in jar: $audio_entries"
+          test "$audio_entries" -gt 0
+          ls -lh "dist/$JAR_NAME"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mindustry-f-client
+          path: dist/${{ env.JAR_NAME }}
+          if-no-files-found: error
+
+      - name: Publish release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-build
+          name: Latest build (${{ github.ref_name }})
+          body: |
+            Automated build from `${{ github.sha }}` on branch `${{ github.ref_name }}`.
+            This jar already bundles `sounds/` and `music/`.
+          prerelease: true
+          files: dist/${{ env.JAR_NAME }}
+          fail_on_unmatched_files: true
