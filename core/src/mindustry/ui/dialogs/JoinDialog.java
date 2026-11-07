@@ -440,6 +440,10 @@ public class JoinDialog extends BaseDialog{
                     refreshCommunity();
                 }).update(i -> i.getStyle().imageUp = (showHidden ? Icon.eyeSmall : Icon.eyeOffSmall))
                     .size(40f).right().padRight(3).tooltip("@servers.showhidden");
+
+                //the failed-fetch row is hidden while a cached list exists, so the manual refresh lives here
+                name.button(Icon.refresh, Styles.emptyi, this::refetchCommunityServers)
+                    .size(40f).right().padRight(3).tooltip("@hosts.refresh");
             }
 
             name.button(Icon.downOpen, Styles.emptyi, () -> {
@@ -486,17 +490,19 @@ public class JoinDialog extends BaseDialog{
             fetchServers();
         }
 
-        if(fetchingCommunityServersErrored){ // FINISHME: Bundle
-            global.table(t -> {
-                t.add("Error: Unable to fetch community servers list.").color(Color.red).padRight(10f);
-                t.button("@hosts.refresh", Icon.refresh, this::refetchCommunityServers).size(180f, 55f).pad(4f);
-            }).center();
-            global.row();
-        }
-
         //if the servers have been fetched, use the fetched list
         //otherwise use the cached list + the extra servers that may have been included by mods
         var servers = fetchedServers ? defaultServers : tmpServers.clear().addAll(cachedServers).addAll(defaultServers);
+
+        //a failed fetch is only worth reporting when there is nothing to show:
+        //a cached list is still usable, and the message would just be noise on top of it
+        if(fetchingCommunityServersErrored && servers.isEmpty()){
+            global.table(Tex.button, t -> {
+                t.add("@servers.fetchfailed").color(Color.red).pad(10f);
+                t.add().growX();
+                t.button(Icon.refresh, this::refetchCommunityServers).pad(-12f).padLeft(0).width(70f).fillY();
+            }).growX().row();
+        }
 
         for(int i = 0; i < servers.size; i ++){
             ServerGroup group = servers.get((i + servers.size/2) % servers.size);
@@ -581,11 +587,11 @@ public class JoinDialog extends BaseDialog{
         }
     }
 
-    /** Manually retries fetching the community server list after a failure. */
+    /** Fetches the community server list again, also acting as a manual refresh after a success. */
     void refetchCommunityServers(){
-        if(fetchedServers) return;
-
-        fetchingCommunityServersErrored = false;
+        fetchedServers = false;
+        defaultServers.clear();
+        resetServerFetch();
         startFetch(beList ? serverJsonBeURLs : serverJsonURLs, true);
         refreshCommunity();
     }

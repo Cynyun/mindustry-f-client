@@ -37,7 +37,9 @@ import java.util.*;
 import static mindustry.Vars.*;
 
 public class PlacementFragment{
-    final int rowWidth = 4;
+    //read once: the block bar is built when the client starts, so the settings need a restart to apply
+    final int rowWidth = Math.max(1, Math.min(8, Core.settings.getInt("blockbarcols", 4)));
+    final int rowHeight = Math.max(1, Math.min(8, Core.settings.getInt("blockbarrows", 4)));
 
     public Category currentCategory = Category.distribution;
 
@@ -76,6 +78,11 @@ public class PlacementFragment{
         Binding.blockSelectDown
     };
     TextField search;
+
+    /** width of the block bar for the configured column count, never narrower than the vanilla value */
+    float blockBarWidth(){
+        return Math.max(190f, rowWidth * 46f);
+    }
 
     public PlacementFragment(){
         Events.on(WorldLoadEvent.class, event -> {
@@ -350,9 +357,9 @@ public class PlacementFragment{
                             }
                         });
                     }
-                    //add missing elements to even out table size
-                    if(index < 4){
-                        for(int i = 0; i < 4-index; i++){
+                    //add missing elements so that a short first row still fills the configured width
+                    if(index < rowWidth){
+                        for(int i = 0; i < rowWidth - index; i++){
                             blockTable.add().size(46f);
                         }
                     }
@@ -407,7 +414,7 @@ public class PlacementFragment{
                                 header.left();
                                 header.add(new Image(displayBlock.uiIcon)).scaling(Scaling.fit).size(8 * 4);
                                 header.labelWrap(() -> !unlocked(displayBlock) ? Core.bundle.get("block.unknown") : displayBlock.localizedName + keyComboFinal)
-                                    .left().width(190f).padLeft(5);
+                                    .left().width(blockBarWidth()).padLeft(5);
                                 header.add().growX();
                                 if(unlocked(displayBlock)){
                                     header.button("?", Styles.flatBordert, () -> {
@@ -449,7 +456,7 @@ public class PlacementFragment{
                                 b.label(() -> {
                                     var reason = getUnplaceableReason(displayBlock);
                                     return reason == null ? "" : reason;
-                                }).width(190f).wrap();
+                                }).width(blockBarWidth()).wrap();
                             }, () -> getUnplaceableReason(displayBlock) != null).left();
 
                         }
@@ -466,7 +473,7 @@ public class PlacementFragment{
                             topTable.row();
                             topTable.table(s -> {
                                 s.image(Icon.zoom).padRight(8).left();
-                                search = s.field(null, text -> rebuildCategory.run()).width(190f).get();
+                                search = s.field(null, text -> rebuildCategory.run()).width(blockBarWidth()).get();
                                 search.setMessageText("@players.search");
                             }).growX().padTop(extraPadTop);
                         }
@@ -806,7 +813,7 @@ public class PlacementFragment{
                 {
                     blockCatTable.table(Tex.pane2, blocksSelect -> {
                         blocksSelect.margin(4).marginTop(0);
-                        blockPane = blocksSelect.pane(blocks -> blockTable = blocks).height(194f).update(pane -> {
+                        blockPane = blocksSelect.pane(blocks -> blockTable = blocks).height(rowHeight * 46f + 10f).update(pane -> {
                             if(pane.hasScroll()){
                                 Element result = Core.scene.getHoverElement();
                                 if(result == null || !result.isDescendantOf(pane)){

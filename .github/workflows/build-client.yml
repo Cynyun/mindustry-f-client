@@ -38,7 +38,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build desktop jar
-        run: ./gradlew desktop:dist --parallel --stacktrace
+        run: ./gradlew desktop:dist --parallel --stacktrace -PclientVersion="v1.0.0, $(date -u +'%b. %-d, %Y')"
 
       - name: Add audio to jar
         run: |

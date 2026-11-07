@@ -11,6 +11,7 @@ import arc.util.*;
 import mindustry.*;
 import mindustry.ai.types.*;
 import mindustry.client.ClientVars;
+import mindustry.client.features.SpawnInfoOverlay;
 import mindustry.client.utils.*;
 import mindustry.entities.*;
 import mindustry.entities.units.BuildPlan;
@@ -257,6 +258,9 @@ public class OverlayRenderer{
                 }
             }
         }
+
+        //spawn point info: countdown and next wave units (client feature)
+        Draw.draw(Layer.overlayUI + 0.01f, SpawnInfoOverlay::draw);
 
         Draw.reset();
 

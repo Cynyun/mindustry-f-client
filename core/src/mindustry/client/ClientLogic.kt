@@ -8,6 +8,7 @@ import arc.util.*
 import mindustry.Vars.*
 import mindustry.client.ClientVars.*
 import mindustry.client.antigrief.*
+import mindustry.client.features.*
 import mindustry.client.navigation.*
 import mindustry.client.navigation.Navigation.stopFollowing
 import mindustry.client.ui.*
@@ -244,6 +245,10 @@ class ClientLogic {
         Events.run(Trigger.draw) {
             camera.bounds(cameraBounds)
             cameraBounds.grow(2 * tilesizeF)
+        }
+
+        Events.run(Trigger.update) {
+            QuickSwap.update()
         }
 
 //        Events.on(ResetEvent::class.java) { FINISHME v8: Get this working again, it saves a tiny amount of ram after a large map but it may as well get fixed since its so trivial

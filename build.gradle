@@ -47,7 +47,7 @@ allprojects{
         if(!project.hasProperty("assetRef")) assetRef = 'v8'
         if(!project.hasProperty("versionModifier")) versionModifier = 'release'
         if(!project.hasProperty("buildversion")) buildversion = '160.7'
-        if(!project.hasProperty("clientVersion")) clientVersion = 'v1.0.0, Jan. 1, 1970'
+        if(!project.hasProperty("clientVersion")) clientVersion = 'v1.0.0, ' + new SimpleDateFormat("MMM. d, yyyy", Locale.ENGLISH).format(new Date())
         if(!project.hasProperty("versionType")) versionType = 'official'
         appName = 'Mindustry'
         steamworksVersion = '185e76cfe630a6f0e1dd7b9bf57be41f6064a1f2'

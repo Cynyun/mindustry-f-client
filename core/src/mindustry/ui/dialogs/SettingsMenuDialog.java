@@ -506,6 +506,8 @@ public class SettingsMenuDialog extends BaseDialog{
         client.sliderPref("automapvote", 0, 0, 4, s -> s == 0 ? "Never" : s == 4 ? "Random vote" : "Always " + new String[]{"downvote", "novote", "upvote"}[--s]);
         client.sliderPref("serverbrowserpinglimit", 2000, 500, 5000, 500, s -> s + " ms");
         client.sliderPref("maxschematicslisted", 300, 0, 3000, 150, s -> s == 0 ? "Unlimited" : String.valueOf(s));
+        client.sliderPref("blockbarcols", 4, 1, 8, 1, s -> String.valueOf(s));
+        client.sliderPref("blockbarrows", 4, 1, 8, 1, s -> String.valueOf(s));
         client.textPref("defaultbuildpathargs", "self"); // Keep it to just self. Skill issue players going afk make this too problematic otherwise. FINISHME: Add an afk detection system and revert this once we can reliably detect afk players and allow others to stop their pathing
         client.textPref("defaultminepathargs", "all");
         client.textPref("gamejointext", "");
@@ -514,6 +516,8 @@ public class SettingsMenuDialog extends BaseDialog{
         client.checkPref("autoupdate", true, i -> becontrol.checkUpdates = i);
         client.checkPref("discordrpc", true, i -> platform.toggleDiscord(i));
         client.checkPref("confirmexit", true, i -> Vars.confirmExit = i);
+        client.checkPref("quickconveyorswap", true);
+        client.checkPref("alwaysshowspawninfo", false);
         client.checkPref("pathnav", true);
         client.checkPref("nyduspadpatch", true);
         client.checkPref("forceallowschematics", true);
