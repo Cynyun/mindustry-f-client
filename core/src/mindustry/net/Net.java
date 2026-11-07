@@ -38,7 +38,6 @@ public class Net{
     private final ObjectMap<Class<?>, Cons> clientListeners = new ObjectMap<>();
     private final ObjectMap<Class<?>, Cons2<NetConnection, Object>> serverListeners = new ObjectMap<>();
     private final IntMap<StreamBuilder> streams = new IntMap<>();
-    public ExecutorService pingExecutor;
 
     private final NetProvider provider;
 
@@ -377,15 +376,13 @@ public class Net{
     }
 
     /**
-     * Pings a host in a pooled thread. If an error occurred, failed() should be called with the exception.
+     * Pings a host without blocking the caller. All pings share one UDP socket, so pinging hundreds of
+     * servers costs one packet each instead of one thread and one socket each.
+     * If an error occurred, failed() should be called with the exception.
      * If the port is the default mindustry port, SRV records are checked too.
      */
     public void pingHost(String address, int port, Cons<Host> valid, Cons<Exception> failed){
-        if(pingExecutor == null) {
-            int threads = Core.settings.getInt("pingexecutorthreads");
-            pingExecutor = Threads.cachedExecutor("Server Pings", threads > 100 ? Integer.MAX_VALUE : threads);
-        }
-        pingExecutor.submit(() -> provider.pingHost(address, port, valid, failed));
+        PingService.ping(address, port, valid, failed);
     }
 
     /**

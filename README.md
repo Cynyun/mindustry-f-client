@@ -1,101 +1,105 @@
 ![Logo](foo.png)
 
-[![Release Update](../../workflows/Release%20Update/badge.svg)](https://mindustry-antigrief.github.io/mindustry-client)
-[![Tests (Unstable)](../../workflows/Java%20Tests/badge.svg?branch=v8)](https://mindustry-antigrief.github.io/mindustry-client-v8-builds)
-[![Discord](https://img.shields.io/discord/741710208501547161.svg?logo=discord&logoColor=white&logoWidth=20&labelColor=7289DA&label=Discord&color=17cf48)](https://discord.gg/yp9ZW7j)
+[![Build Client](https://github.com/Cynyun/mindustry-f-client/actions/workflows/build-client.yml/badge.svg?branch=v8)](https://github.com/Cynyun/mindustry-f-client/actions/workflows/build-client.yml)
+[![Download](https://img.shields.io/badge/download-mindustry--f--client.jar-17cf48)](https://github.com/Cynyun/mindustry-f-client/releases/download/latest-build/mindustry-f-client.jar)
+[![Upstream](https://img.shields.io/badge/upstream-Foo's%20Client-7289DA)](https://github.com/mindustry-antigrief/mindustry-client)
 
-# Installer
-Install `mindustry-antigrief/client-installer` through the mod browser in the vanilla game and allow the game to restart, upon restarting you will be prompted with an install popup, choose a version and it will install itself.
+# Foo's Client · 个人定制版
 
-## [Changelog](./core/assets/changelog)
-## [Development/Unstable Builds](../../../mindustry-client-v8-builds)
-## Steam
-### Windows
-There are 3 methods to install the client on steam for windows.
-#### Automatic Installer
-Refer to [the installer section](https://github.com/mindustry-antigrief/mindustry-client/tree/v8#installer)
-#### Single Command Installer
-Run this command in a CMD window [**as admin**](https://www.howtogeek.com/howto/windows-vista/run-a-command-as-administrator-from-the-windows-vista-run-box/) (replace the path if needed): `cd /d "C:\Program Files (x86)\Steam\steamapps\common\Mindustry" && del Mindustry.exe && mklink Mindustry.exe C:\Windows\System32\cmd.exe && curl -L -o jre\client.jar https://github.com/mindustry-antigrief/mindustry-client-v8-builds/releases/latest/download/desktop.jar && echo Done!` then [set the game's launch options](https://support.steampowered.com/kb_article.php?ref=1040-JWMT-2947) to `/c java -jar "%cd%\jre\client.jar"`
-#### Semi Automated Install
-1. [Download](../../../mindustry-client-v8-builds/releases/latest/download/desktop.jar) the `desktop.jar` file from the latest release.
-2. [Download](https://github.com/mindustry-antigrief/mindustry-client/blob/v8/steam_appid.txt) the `steam_appid.txt` file and place it in the same folder as the jar.
-3. Place the `desktop.jar` and `steam_appid.txt` in the same folder.
-4. Ensure steam is running and you are logged in, double click the jar and it should then open the client on steam.
-#### Manual Install
-*Removed due to this no longer working correctly in v7+, may rewrite later.*
+这是 [Foo's Client](https://github.com/mindustry-antigrief/mindustry-client)（下称 **F端**）的 fork，基于其 `v8` 分支，在上游的基础上做了一些个人修改。游戏本体来自 [Anuken/Mindustry](https://github.com/Anuken/Mindustry)，客户端代码的版权与许可仍归上游所有。
 
-### Mac OS
-1. [Download](../../../mindustry-client-v8-builds/releases/latest/download/desktop.jar) the `desktop.jar` file from the latest release.
-1. Open the game install folder, right click the `Mindustry.app` file and click `Show Package Contents`.
-1. Navigate to the `Resources` folder `Contents > Resources`.
-1. Replace the `desktop.jar` with the one you just downloaded.
-1. Launching the game should now start the client.
-- To uninstall the client, delete the `desktop.jar` file in `Resources` as well as the `Mindustry` file in the `MacOS` folder. Start the game, accept the error and start it again.
+**English** — A personal fork of [Foo's Client](https://github.com/mindustry-antigrief/mindustry-client) based on its `v8` branch, with some personal modifications on top of upstream. Prebuilt jars are published to the [`latest-build` release](https://github.com/Cynyun/mindustry-f-client/releases/tag/latest-build). Upstream docs: [mindustry-antigrief/mindustry-client](https://github.com/mindustry-antigrief/mindustry-client#readme).
+
+> 本仓库不是 F端 官方版本。上游的安装器 / 更新器不会更新到这里的构建；想用本仓库的版本，请下载下面 Release 里的 jar。
+
+## 下载
+
+| 文件 | 说明 |
+|---|---|
+| [mindustry-f-client.jar](https://github.com/Cynyun/mindustry-f-client/releases/download/latest-build/mindustry-f-client.jar) | 每次 push 到 `v8` 自动构建，已内置 `sounds/` 与 `music/`（约 96 MB），对应 F端 `v8` / 构建号 `160.7` |
+
+GitHub Actions 里上传的 artifact 永远是 zip，想要可以直接运行的 `.jar` 请用上面的 Release 链接。旧构建都在 [Release 页面](https://github.com/Cynyun/mindustry-f-client/releases) 的 `latest-build` tag 下覆盖更新。
+
+## 安装
+
+下载后按平台放到位：
+
+### Windows（Steam）
+
+- **快速试用**：把 jar 和本仓库根目录的 [`steam_appid.txt`](steam_appid.txt) 放到同一个文件夹，先启动 Steam 并登录，然后双击 jar。
+- **装进 Steam**：用管理员权限打开 CMD，执行（会删掉 `Mindustry.exe` 并换成指向 `cmd.exe` 的符号链接，介意的话先备份）：
+
+  ```bat
+  cd /d "C:\Program Files (x86)\Steam\steamapps\common\Mindustry"
+  del Mindustry.exe
+  mklink Mindustry.exe C:\Windows\System32\cmd.exe
+  curl -L -o jre\client.jar https://github.com/Cynyun/mindustry-f-client/releases/download/latest-build/mindustry-f-client.jar
+  ```
+
+  然后在 Steam 里把该游戏的启动选项设为 `/c java -jar "%cd%\jre\client.jar"`。
+
+### macOS
+
+打开游戏安装目录，右键 `Mindustry.app` → `Show Package Contents` → `Contents/Resources`，用下载的 jar 替换其中的 `desktop.jar`。
 
 ### Linux
-1. You are using linux, I'm sure you can figure this out yourself.
 
-## Contributing
-
-See [CONTRIBUTING](CONTRIBUTING.md) for general code style and PR guidelines.
-
-If you are a first-time contributor looking for features to implement or bugs to fix, see the issues tagged with 'candidate' [in the Mindustry-Suggestions repostiory](https://github.com/Anuken/Mindustry-Suggestions/issues?q=is%3Aissue%20state%3Aopen%20label%3Acandidate).
-
-## Building
-
-Unstable builds are generated automatically for every commit. You can see them [here](https://github.com/mindustry-antigrief/mindustry-client-v8-builds/releases).
-
-If you'd rather compile on your own, follow these instructions.
-First, make sure you have [JDK 17](https://adoptium.net/temurin/releases/?os=any&arch=any&version=17) installed. **Other JDK versions will not work.** Open a terminal in the Mindustry directory and run the following commands:
-
-### Windows
-
-_Running:_ `gradlew desktop:run`  
-_Building:_ `gradlew desktop:dist`  
-_Sprite Packing:_ `gradlew tools:pack`
-
-### Linux/Mac OS
-
-_Running:_ `./gradlew desktop:run`  
-_Building:_ `./gradlew desktop:dist`  
-_Sprite Packing:_ `./gradlew tools:pack`
-
-### Server
-
-The client doesn't work as a server believe it or not.
+```bash
+java -jar mindustry-f-client.jar
+```
 
 ### Android
 
-1. Install the Android SDK [here.](https://developer.android.com/studio#command-tools) Make sure you're downloading the "Command line tools only", as Android Studio is not required.
-2. In the unzipped Android SDK folder, find the cmdline-tools directory. Then create a folder inside of it called `latest` and put all of its contents into the newly created folder.
-3. In the same directory run the command `sdkmanager --licenses` (or `./sdkmanager --licenses` if on linux/mac)
-4. Set the `ANDROID_HOME` environment variable to point to your unzipped Android SDK directory.
-5. Enable developer mode on your device/emulator. If you are on testing on a phone you can follow [these instructions](https://developer.android.com/studio/command-line/adb#Enabling), otherwise you need to google how to enable your emulator's developer mode specifically.
-6. Run `gradlew android:assembleDebug` (or `./gradlew` if on linux/mac). This will create an unsigned APK in `android/build/outputs/apk`.
+CI 不产出 APK，需要自己编译，步骤见上游 README 的 Android 章节（`gradlew android:assembleDebug`）。
 
-To debug the application on a connected device/emulator, run `gradlew android:installDebug android:run`.
+## 本地构建
 
-### Troubleshooting
+需要 [JDK 17](https://adoptium.net/temurin/releases/?os=any&arch=any&version=17)，其它版本不行。
 
-#### Permission Denied
+```bash
+# 运行
+gradlew desktop:run        # Linux/macOS 用 ./gradlew
 
-If the terminal returns `Permission denied` or `Command not found` on Mac/Linux, run `chmod +x ./gradlew` before running `./gradlew`. *This is a one-time procedure.*
+# 打包
+gradlew desktop:dist
 
-#### Where is the `mindustry.gen` package?
+# 补音频（desktop:dist 默认不含音频）
+jar uf desktop/build/libs/Mindustry.jar -C core/assets sounds -C core/assets music
+```
 
-As the name implies, `mindustry.gen` is generated *at build time* based on other code. You will not find source code for this package in the repository, and it should not be edited by hand.
+产物在 `desktop/build/libs/Mindustry.jar`。Android 构建见上游 README，`gradlew android:assembleDebug` 会生成未签名 APK 到 `android/build/outputs/apk`。
 
-The following is a non-exhaustive list of the "source" of generated code in `mindustry.gen`:
+### 常见问题
 
-- `Call`, `*Packet` classes: Generated from methods marked with `@Remote`.
-- All entity classes (`Unit`, `EffectState`, `Posc`, etc): Generated from component classes in the `mindustry.entities.comp` package, and combined using definitions in `mindustry.content.UnitTypes`.
-- `Sounds`, `Musics`, `Tex`, `Icon`, etc: Generated based on files in the respective asset folders.
+- **`Permission denied` / `Command not found`（mac/Linux）**：先 `chmod +x ./gradlew`。
+- **`mindustry.gen` 包在哪**：构建时生成，仓库里没有源码，也不要手改。
+- **首次构建很慢**：Gradle 要下载依赖，耐心等。
+- **能当服务端用吗**：不能，客户端只做客户端。
 
----
+## 同步上游
 
-Gradle may take up to several minutes to download files. Be patient. <br>
-After building, the output .JAR file should be in `/desktop/build/libs/Mindustry.jar`
+本仓库的 `origin` 是自己的 fork，`upstream` 指向 F端 本体：
 
-## Feature Requests
+```bash
+git fetch upstream
+git switch v8
+git merge upstream/v8
+# 解决冲突 → 提交
+git push origin v8            # 触发 CI，几分钟后 Release 里的 jar 自动更新
+```
 
-Please post feature requests and bug reports in the [discord](https://discord.gg/yp9ZW7j)
+- 冲突热点：`JoinDialog.java`、`SettingsMenuDialog.java`、`bundle*.properties`、`build-client.yml`。
+- `gradle.properties` 里的 `archash` 会随 F端 升级 Arc 而变化；合并后若 jitpack 还没生成对应的 arc 依赖，等几分钟重跑 CI 即可。
+- 想保持线性历史可以 `git rebase upstream/v8` 后 `git push --force-with-lease origin v8`。
+
+## 反馈
+
+- **本仓库的 Issues 是关闭的**：GitHub 的 fork 默认不带 Issues，这里也没有手动打开，所以页面上没有 Issues 标签。
+- **通用 bug / 功能建议**：发给上游 —— [Discord](https://discord.gg/yp9ZW7j) 或上游的 [issues](https://github.com/mindustry-antigrief/mindustry-client/issues)；哪些 issue 会被直接关掉见上游的 [ISSUES.md](ISSUES.md)。
+- **只和本 fork 有关的问题**：先在 Discord 找我；以后若要收 issue，在仓库 Settings → General → Features 里勾上 Issues 即可。
+
+## 致谢与许可
+
+- 游戏本体：[Anuken/Mindustry](https://github.com/Anuken/Mindustry)
+- 客户端上游：[mindustry-antigrief/mindustry-client](https://github.com/mindustry-antigrief/mindustry-client)（F端 功能更新日志见 [core/assets/changelog](core/assets/changelog)，社区 [Discord](https://discord.gg/yp9ZW7j)）
+- 本仓库与其修改同样以 [GPL-3.0](LICENSE) 发布；上游维护的文档（[ISSUES.md](ISSUES.md)、[TRANSLATING.md](TRANSLATING.md)）仍适用。

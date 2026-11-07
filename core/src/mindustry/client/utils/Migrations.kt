@@ -55,9 +55,7 @@ class Migrations {
     }
 
     private fun migration2() { // Lowercased the pingExecutorThreads setting name
-        if (!settings.has("pingExecutorThreads")) return
-        settings.put("pingexecutorthreads", settings.getInt("pingExecutorThreads"))
-        settings.remove("pingExecutorThreads")
+        // NOOP: pings no longer use a thread pool, the setting is removed by migration14.
     }
 
     private fun migration3() { // Finally changed Binding.navigate_to_camera to navigate_to_cursor
@@ -187,5 +185,12 @@ class Migrations {
                 Binding.find.save()
             }
         }
+    }
+
+    private fun migration14() {
+        // Server pings now share one UDP socket, so the thread count setting is gone; both the current
+        // and the legacy camelCase names are dropped instead of lingering in settings.json forever.
+        settings.remove("pingexecutorthreads")
+        settings.remove("pingExecutorThreads")
     }
 }

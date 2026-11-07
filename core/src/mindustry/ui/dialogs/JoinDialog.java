@@ -213,9 +213,10 @@ public class JoinDialog extends BaseDialog{
 
             Button button = buttons[0] = remote.button(b -> {}, style, () -> {
                 if(!buttons[0].childrenPressed()){
-                    if(server.lastHost != null){
+                    //a server that was pinged when the dialog opened is joined without pinging it again
+                    if(server.lastHost != null && Time.timeSinceMillis(server.lastHostTime) < 60_000){
                         Events.fire(new ClientPreConnectEvent(server.lastHost));
-                        safeConnect(server.lastHost.address, server.lastHost.port, server.lastHost.version);
+                        safeConnect(server.lastHost);
                     }else{
                         connect(server.ip, server.port);
                     }
@@ -295,6 +296,10 @@ public class JoinDialog extends BaseDialog{
     }
 
     void refreshServer(Server server){
+        //never connect with a stale host while this address is being checked again
+        server.lastHost = null;
+        server.lastHostTime = 0;
+
         server.content.clear();
 
         server.content.background(Tex.whitePane).setColor(Pal.gray);
@@ -311,6 +316,7 @@ public class JoinDialog extends BaseDialog{
 
     void setupServer(Server server, Host host){
         server.lastHost = host;
+        server.lastHostTime = Time.millis();
         server.content.clear();
         buildServer(host, server.content, false, true);
     }
@@ -645,12 +651,12 @@ public class JoinDialog extends BaseDialog{
             if(!Core.settings.getBool("server-disclaimer", false)){
                 ui.showCustomConfirm("@warning", "@servers.disclaimer", "@ok", "@back", () -> {
                     Core.settings.put("server-disclaimer", true);
-                    safeConnect(host.address, host.port, host.version);
+                    safeConnect(host);
                 }, () -> {
                     Core.settings.put("server-disclaimer", false);
                 });
             }else{
-                safeConnect(host.address, host.port, host.version);
+                safeConnect(host);
             }
         }).width(w).padBottom(7).padRight(4f).top().left().growY().uniformY().get();
         button[0].clicked(l -> l.setButton(KeyCode.mouseRight), () -> Core.app.setClipboardText(host.address)); // FINISHME: (Mar 2024) does this still work with the new changes here?
@@ -723,27 +729,51 @@ public class JoinDialog extends BaseDialog{
 
         local.button(b -> buildServer(host, b, true, true), style, () -> {
             Events.fire(new ClientPreConnectEvent(host));
-            safeConnect(host.address, host.port, host.version);
+            safeConnect(host);
         }).width(w).top().left().pad(2f).growY();
     }
 
+    /** Connects by address, pinging once first so that a stale server is reported before the TCP connection. */
     public void connect(String ip, int port){
         if(player.name.trim().isEmpty()){
             ui.showInfo("@noname");
             return;
         }
 
+        showConnecting();
+
+        if(ip.startsWith("steam:")){
+            doConnect(null, ip, port);
+        }else{
+            net.pingHost(ip, port, h -> doConnect(h, ip, port), e -> {
+                //the ping is only a hint: UDP may be filtered while the server itself still accepts connections
+                ui.loadfrag.hide();
+                ui.showCustomConfirm("@warning", Core.bundle.format("connect.pingfail", ip),
+                    "@connect.anyway", "@cancel", () -> {
+                        showConnecting();
+                        doConnect(null, ip, port);
+                    }, () -> {});
+            });
+        }
+    }
+
+    /** Connects to a host that was pinged moments ago, skipping the pre-connect ping entirely. */
+    public void connect(Host host, String ip, int port){
+        if(player.name.trim().isEmpty()){
+            ui.showInfo("@noname");
+            return;
+        }
+
+        showConnecting();
+        doConnect(host, ip, port);
+    }
+
+    private void showConnecting(){
         ui.loadfrag.show("@connecting");
 
         ui.loadfrag.setButton(() -> {
             ui.loadfrag.hide();
             netClient.disconnectQuietly();
-        });
-
-        if (ip.startsWith("steam:")) doConnect(null, ip, port);
-        else net.pingHost(ip, port, h -> doConnect(h, ip, port), e -> { // Make a second attempt on timeout
-            if (e instanceof SocketTimeoutException) net.pingHost(ip, port, h -> doConnect(h, ip, port), ex -> net.showError(ex));
-            else net.showError(e);
         });
     }
 
@@ -799,7 +829,8 @@ public class JoinDialog extends BaseDialog{
             host -> Core.app.post(() -> {
                 if(!reconnecting || generation != reconnectGeneration) return;
                 reconnecting = false;
-                connect(lastIp, lastPort);
+                //the fresh host from this ping is passed along, so connecting does not ping a third time
+                connect(host, lastIp, lastPort);
             }),
             e -> Core.app.post(() -> scheduleReconnectPing(generation)));
     }
@@ -819,12 +850,12 @@ public class JoinDialog extends BaseDialog{
         ui.loadfrag.hide();
     }
 
-    void safeConnect(String ip, int port, int version){
-        if(!Core.settings.getBool("allowjoinany") && version != Version.build && Version.build != -1 && version != -1){
-            ui.showInfo("[scarlet]" + (version > Version.build ? KickReason.clientOutdated : KickReason.serverOutdated) + "\n[]" +
-                Core.bundle.format("server.versions", Version.build, version));
+    void safeConnect(Host host){
+        if(!Core.settings.getBool("allowjoinany") && host.version != Version.build && Version.build != -1 && host.version != -1){
+            ui.showInfo("[scarlet]" + (host.version > Version.build ? KickReason.clientOutdated : KickReason.serverOutdated) + "\n[]" +
+                Core.bundle.format("server.versions", Version.build, host.version));
         }else{
-            connect(ip, port);
+            connect(host, host.address, host.port);
         }
     }
 
@@ -983,6 +1014,8 @@ public class JoinDialog extends BaseDialog{
 
         transient Table content;
         transient public Host lastHost;
+        /** when {@link #lastHost} was pinged; a stale host is pinged again before connecting */
+        transient long lastHostTime;
 
         void setIP(String ip){
             try{
